@@ -1,0 +1,85 @@
+---
+title: "NYPD Shooting Incident Data"
+author: "Luis Hinostroza"
+date: "2024-03-04"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# NYPD Shooting Incident Data Analysis
+
+## This data represent the NYPD Shooting Incident Data Report based on a dataset retrieved from https://catalog.data.gov/dataset covering 2006 to 2023 reported incidents. The purpose of this Analysis is to gain more insight into the shooting incidents and to find potential trends that can be used for crime prediction.
+
+```{r data, echo=TRUE}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(chron)
+library(zoo)
+library(shiny)
+
+url_in <- "https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD"
+df <- read_csv(url_in[1])
+df[sapply(df, is.null)] <- NA
+```
+
+\pagebreak
+
+## The Data has null values, non sense values, and empty cells. The following code will clean up the table and tidyup the results.
+
+```{r cleaning, echo=TRUE}
+shooting_cases <- df %>%
+  mutate(DATE = mdy(OCCUR_DATE)) %>%
+  select(c(DATE, OCCUR_TIME, BORO, PERP_AGE_GROUP, PERP_SEX, PERP_RACE, VIC_AGE_GROUP, VIC_SEX, VIC_RACE)) %>%
+  na.omit() %>%
+  filter(PERP_AGE_GROUP != "UNKNOWN", VIC_AGE_GROUP != "UNKNOWN", PERP_AGE_GROUP != "(null)", VIC_AGE_GROUP != 1022, PERP_AGE_GROUP != 940, PERP_AGE_GROUP != 224, PERP_AGE_GROUP != 1020)
+
+shooting_cases
+```
+
+# Visualization
+
+## Now we will visualize how age and race influence into the amount of shooting incidents. You will see from the graphs that young people between 18 to 24 years old are most of the perpetrator follow by 25 to 44 years old. The Victim ages are very similar making the 25 to 44 years old the most of the victims followed by 18 to 24. The last two graphs about race show black people as the majority race for the victim and perpetrator incidents, this could be due to the demographic predominance in the majority of these cities.
+
+```{r plotting, echo=TRUE}
+shooting_cases %>%
+  ggplot(aes(x = VIC_AGE_GROUP)) +
+  geom_bar() + labs(title = "Total Number of Incidents by Age", x = "Victim Age", y = "Total Count")
+
+shooting_cases %>%
+  ggplot(aes(x = PERP_AGE_GROUP)) +
+  geom_bar() + labs(title = "Total Number of Incidents by Age", x = "Perpetrator Age", y = "Total Count")
+
+shooting_cases %>%
+  ggplot(aes(y = VIC_RACE)) +
+  geom_bar() + labs(title = "Total Number of Incidents by Race", x = "Total Count", y = "Victim Race")
+
+shooting_cases %>%
+  ggplot(aes(y = PERP_RACE)) +
+  geom_bar() + labs(title = "Total Number of Incidents by Race", x = "Total Count", y = "Perpetrator Race")
+
+```
+
+# Analysis
+
+## My following analysis is to find a pattern on the incidents for every year. The graph below shows the the peak tendency is during the summer. We can also see the surge in shootings in the summer of 2020 after the killing of George Floyd
+
+```{r visualization, echo=TRUE}
+df$OCCUR_DATE = as.Date(df$OCCUR_DATE, format = "%m/%d/%Y")
+df$Year = df$OCCUR_DATE %>% format("%Y") %>% as.integer()
+df$Month = df$OCCUR_DATE %>% format("%m") %>% as.integer()
+yearmon_df = df %>% group_by(Year, Month) %>% dplyr::summarise(Count = n()) %>% as.data.frame()
+yearmon_df$Year = yearmon_df$Year %>% as.factor()
+yearmon_df$Month = yearmon_df$Month %>% as.factor()
+ggplot(yearmon_df, aes(x = Month, y = Count, group = Year, col = Year)) + geom_line()
+```
+
+# Data Bias and Conclusion
+
+## Possible bias that may have been introduced into this data set may come from areas that are more heavily policed. Accordingly, other boroughs that do not have as large of a law-enforcement presence may be under- reporting incidents. In other words, more police officers in an area means more availability to respond to and report shooting incidents. It is not clear whether this data includes instances where people literally were hit with a bullet or if there are also incidents where a victim was just shot at; either way there are presumably more ‘shots fired’ incidents not included in this data set which have different feature distributions from this dataset. Perpetrator description columns may be subject to direct bias as they may be garnered from witness statements which can be faulty. Victim description columns should be better since it is easier to actually locate and confirm a shooting victim
